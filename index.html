@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SafeSight — Daily Safety Observation Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme:{extend:{
+    colors:{navy:{950:'#0a1428',900:'#0f1e3a',800:'#16294f',700:'#1e3a68'},safety:{400:'#ffb020',500:'#ff9500',600:'#f17d00'},lime2:'#e9f9ee'},
+    fontFamily:{display:['Archivo','sans-serif'],body:['Inter','sans-serif']},
+    boxShadow:{card:'0 10px 30px -12px rgba(10,20,40,.25)',pop:'0 20px 60px -15px rgba(0,0,0,.35)'}
+  }}
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+*{font-family:'Inter',sans-serif}
+.font-display{font-family:'Archivo',sans-serif}
+body{background:#eef1f6;background-image:radial-gradient(circle at 15% 0%, #dce8ff 0, transparent 35%),radial-gradient(circle at 90% 10%, #ffe8c2 0, transparent 30%),linear-gradient(#eef1f6,#eef1f6);}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.35;background-image:linear-gradient(rgba(15,30,58,.06) 1px, transparent 1px),linear-gradient(90deg, rgba(15,30,58,.06) 1px, transparent 1px);background-size:28px 28px;mask-image:radial-gradient(ellipse at center, black 60%, transparent 100%);}
+.hazard-strip{background:repeating-linear-gradient(-45deg,#ffb020 0 16px,#0a1428 16px 32px);}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 10px 30px -12px rgba(10,20,40,.18);overflow:hidden}
+.card-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #eef2f7}
+.num-badge{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-family:'Archivo';font-size:15px;flex-shrink:0}
+label.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5b6b84;margin-bottom:6px;display:block}
+.inp{width:100%;border:1.5px solid #e2e8f0;border-radius:11px;padding:10px 12px;font-size:13.5px;background:#f8fafc;outline:none;transition:.2s}
+.inp:focus{border-color:#ff9500;background:#fff;box-shadow:0 0 0 4px rgba(255,149,0,.15)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235b6b84' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+textarea.inp{resize:vertical}
+.sev-btn,.lik-btn{height:46px;border-radius:12px;font-weight:800;font-family:'Archivo';font-size:16px;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;transition:.18s;position:relative}
+.sev-btn small,.lik-btn small{display:block;font-size:8.5px;font-weight:700;letter-spacing:.05em;font-family:'Inter'}
+.sev-btn.active,.lik-btn.active{transform:scale(1.05);color:#fff;border-color:transparent;box-shadow:0 8px 20px -6px rgba(0,0,0,.35)}
+.matrix-cell{aspect-ratio:1.2;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;cursor:pointer;transition:.15s;border:2px solid transparent}
+.matrix-cell:hover{transform:scale(1.08)}
+.matrix-cell.sel{border-color:#0a1428;box-shadow:0 0 0 3px #0a1428 inset, 0 6px 16px rgba(0,0,0,.3);transform:scale(1.1);z-index:2}
+.photo-slot{border:2px dashed #cbd5e1;border-radius:14px;overflow:hidden;background:#f8fafc;transition:.2s}
+.photo-slot.has-img{border-style:solid;border-color:#0f1e3a}
+.tab-btn{font-size:11px;font-weight:700;padding:7px 10px;border-radius:8px;color:#64748b;letter-spacing:.03em}
+.tab-btn.active{background:#0f1e3a;color:#fff}
+.sig-wrap{border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;background-image:linear-gradient(#f8fafc,#fff);position:relative;overflow:hidden}
+.sig-wrap canvas{width:100%;height:130px;cursor:crosshair;touch-action:none;display:block}
+.sig-line{position:absolute;left:12px;right:12px;bottom:28px;border-bottom:1.5px dashed #94a3b8;pointer-events:none}
+.btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:13px;padding:10px 16px;border-radius:11px;transition:.2s;cursor:pointer;border:1px solid transparent}
+.btn:active{transform:scale(.97)}
+.lib-item{border:1px solid #e2e8f0;border-radius:14px;padding:12px;background:#fff;transition:.2s;cursor:pointer}
+.lib-item:hover{border-color:#ff9500;box-shadow:0 8px 20px -8px rgba(255,149,0,.4);transform:translateY(-1px)}
+.status-pill{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:999px}
+.risk-low{background:#dcfce7;color:#15803d}.risk-medium{background:#fef9c3;color:#a16207}.risk-high{background:#ffedd5;color:#c2410c}.risk-critical{background:#fee2e2;color:#b91c1c}.risk-positive{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
+.pulse-dot{width:8px;height:8px;border-radius:99px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.toast{animation:slideIn .3s ease}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+.tick{animation:tick 12s linear infinite}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.bar{height:8px;border-radius:99px;transition:width .8s ease}
+#riskDial{transition:.5s}
+.shine{position:relative;overflow:hidden}
+.shine::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-20deg);animation:shine 3.5s infinite}
+@keyframes shine{0%{left:-60%}60%,100%{left:130%}}
+/* A4 */
+#a4Sheet{width:210mm;min-height:297mm;background:#fff;color:#0f1e3a;padding:9mm 10mm 8mm 10mm;font-size:9.2pt;line-height:1.4;position:relative}
+#a4Sheet table{width:100%;border-collapse:collapse}
+#a4Sheet th,#a4Sheet td{border:1px solid #9aa9c0;padding:4px 6px;vertical-align:top}
+#a4Sheet th{background:#0f1e3a;color:#fff;font-size:7.5pt;letter-spacing:.08em;text-transform:uppercase}
+.a4-h{font-family:'Archivo';font-weight:900}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff !important}
+  body::before{display:none}
+  .no-print{display:none !important}
+  #a4Modal{display:block !important;position:static !important;background:#fff !important;padding:0 !important}
+  #a4Modal .modal-box{box-shadow:none !important;max-width:none !important;margin:0 !important;border-radius:0 !important;max-height:none !important;overflow:visible !important}
+  #a4Sheet{box-shadow:none !important;margin:0 !important;transform:none !important;width:210mm !important}
+  .print-hide{display:none !important}
+}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-track{background:#eef1f6}::-webkit-scrollbar-thumb{background:#0f1e3a;border-radius:99px;border:2px solid #eef1f6}
+input[type="date"],input[type="time"]{min-height:42px}
+.switch{position:relative;width:48px;height:26px;background:#cbd5e1;border-radius:99px;cursor:pointer;transition:.2s;flex-shrink:0}
+.switch.on{background:#059669}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:99px;transition:.2s;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.switch.on::after{left:25px}
+</style>
+</head>
+<body class="text-slate-800">
+
+<!-- TOP NAV -->
+<header class="no-print sticky top-0 z-40">
+<div class="hazard-strip h-[7px]"></div>
+<div class="bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-pop">
+<div class="max-w-[1440px] mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+<div class="flex items-center gap-3 mr-auto">
+<div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-safety-400 to-safety-600 flex items-center justify-center shadow-lg shrink-0"><i class="fa-solid fa-helmet-safety text-navy-950 text-xl"></i></div>
+<div>
+<h1 class="font-display font-900 text-[17px] leading-tight tracking-tight font-black">SAFESIGHT <span class="text-safety-400">360</span> <span class="hidden sm:inline font-medium text-slate-300 text-[12px] ml-1">| Daily Safety Observation Report</span></h1>
+<p class="text-[11px] text-slate-300 tracking-wide">Safety Officer Field Console • No Login Required • A4 • PDF • Excel</p>
+</div>
+</div>
+<div class="hidden md:flex items-center bg-white/10 border border-white/15 rounded-xl px-3 py-2 gap-2 w-[280px]">
+<i class="fa-solid fa-magnifying-glass text-safety-400 text-sm"></i>
+<input id="topSearch" placeholder="Search ID, project, location..." class="bg-transparent outline-none text-[13px] w-full placeholder:text-slate-400 text-white"/>
+</div>
+<div class="flex items-center gap-2 flex-wrap">
+<button onclick="newReport()" class="btn bg-safety-500 hover:bg-safety-400 text-navy-950 shine !font-extrabold"><i class="fa-solid fa-plus"></i> New</button>
+<button onclick="previewA4()" class="btn bg-white/10 hover:bg-white/20 border-white/15 text-white"><i class="fa-solid fa-eye"></i> A4 Preview</button>
+<button onclick="doPrint()" class="btn bg-white text-navy-900 hover:bg-slate-100"><i class="fa-solid fa-print"></i> Print</button>
+<button onclick="exportPDF()" class="btn bg-emerald-500 hover:bg-emerald-400 text-white"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+<button onclick="exportExcel()" class="btn bg-[#217346] hover:bg-[#2a8a56] text-white"><i class="fa-solid fa-file-excel"></i> Excel</button>
+</div>
+</div>
+</div>
+<div class="bg-navy-950 text-white/90 overflow-hidden border-t border-white/10">
+<div class="flex whitespace-nowrap tick py-1.5 text-[11.5px] font-medium tracking-wide w-max">
+<span class="px-6">⚠ THINK BEFORE YOU ACT — Every observation prevents an incident &nbsp;&nbsp;•&nbsp;&nbsp; REPORT UNSAFE ACTS & CONDITIONS IMMEDIATELY &nbsp;&nbsp;•&nbsp;&nbsp; HOUSEKEEPING IS EVERYONE'S RESPONSIBILITY &nbsp;&nbsp;•&nbsp;&nbsp; PPE IS THE LAST LINE OF DEFENCE — WEAR IT &nbsp;&nbsp;•&nbsp;&nbsp; POSITIVE OBSERVATIONS BUILD SAFETY CULTURE — RECOGNISE SAFE BEHAVIOUR &nbsp;&nbsp;•&nbsp;&nbsp;</span>
+<span class="px-6">⚠ THINK BEFORE YOU ACT — Every observation prevents an incident &nbsp;&nbsp;•&nbsp;&nbsp; REPORT UNSAFE ACTS & CONDITIONS IMMEDIATELY &nbsp;&nbsp;•&nbsp;&nbsp; HOUSEKEEPING IS EVERYONE'S RESPONSIBILITY &nbsp;&nbsp;•&nbsp;&nbsp; PPE IS THE LAST LINE OF DEFENCE — WEAR IT &nbsp;&nbsp;•&nbsp;&nbsp; POSITIVE OBSERVATIONS BUILD SAFETY CULTURE — RECOGNISE SAFE BEHAVIOUR &nbsp;&nbsp;•&nbsp;&nbsp;</span>
+</div>
+</div>
+</header>
+
+<div class="max-w-[1440px] mx-auto px-3 sm:px-4 py-5">
+
+<!-- STATS -->
+<div class="no-print grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+<div class="card p-4 flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-navy-900 text-white flex items-center justify-center"><i class="fa-solid fa-clipboard-list"></i></div><div><p class="text-[10px] font-bold tracking-widest text-slate-500">TOTAL REPORTS</p><p id="stTotal" class="font-display font-black text-2xl leading-none">0</p></div></div>
+<div class="card p-4 flex items-center gap-3 border-l-4 !border-l-red-500"><div class="w-11 h-11 rounded-xl bg-red-100 text-red-600 flex items-center justify-center"><i class="fa-solid fa-circle-exclamation"></i></div><div><p class="text-[10px] font-bold tracking-widest text-slate-500">OPEN</p><p id="stOpen" class="font-display font-black text-2xl leading-none">0</p></div></div>
+<div class="card p-4 flex items-center gap-3 border-l-4 !border-l-amber-400"><div class="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center"><i class="fa-solid fa-hourglass-half"></i></div><div><p class="text-[10px] font-bold tracking-widest text-slate-500">PENDING</p><p id="stPending" class="font-display font-black text-2xl leading-none">0</p></div></div>
+<div class="card p-4 flex items-center gap-3 border-l-4 !border-l-emerald-500"><div class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-circle-check"></i></div><div><p class="text-[10px] font-bold tracking-widest text-slate-500">CLOSED</p><p id="stClosed" class="font-display font-black text-2xl leading-none">0</p></div></div>
+<div class="card p-4 flex items-center gap-3 border-l-4 !border-l-orange-600"><div class="w-11 h-11 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div><div><p class="text-[10px] font-bold tracking-widest text-slate-500">HIGH / CRITICAL</p><p id="stCrit" class="font-display font-black text-2xl leading-none">0</p></div></div>
+<div class="card p-4 flex items-center gap-3 border-l-4 !border-l-teal-500 bg-gradient-to-br from-white to-emerald-50"><div class="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center"><i class="fa-solid fa-award"></i></div><div><p class="text-[10px] font-bold tracking-widest text-slate-500">POSITIVE</p><p id="stPos" class="font-display font-black text-2xl leading-none">0</p></div></div>
+</div>
+
+<div class="grid lg:grid-cols-[1fr_370px] gap-5 items-start">
+
+<!-- LEFT: FORM -->
+<div class="space-y-5 min-w-0">
+
+<!-- ID BAR -->
+<div class="no-print card overflow-hidden">
+<div class="bg-gradient-to-r from-navy-950 to-navy-700 text-white px-5 py-4 flex flex-wrap items-center gap-3">
+<div class="flex items-center gap-3">
+<span class="pulse-dot bg-emerald-400"></span>
+<div>
+<p class="text-[10px] font-bold tracking-[.2em] text-safety-400">LIVE DOCUMENT • UNIQUE ID</p>
+<h2 id="displayId" class="font-display font-black text-xl tracking-tight">OBS-2026-0000</h2>
+</div>
+</div>
+<div class="ml-auto flex items-center gap-2 flex-wrap">
+<span id="liveStatusPill" class="status-pill bg-safety-500 text-navy-950">OPEN</span>
+<span id="liveRiskPill" class="status-pill bg-white/15 text-white border border-white/20">RISK: —</span>
+<label class="flex items-center gap-2 bg-white/10 border border-white/15 rounded-full pl-3 pr-2 py-1.5 text-[12px] font-semibold cursor-pointer" title="Positive / Good Practice mode">
+<i class="fa-solid fa-star text-yellow-300"></i> Positive Practice
+<div id="positiveSwitch" class="switch" onclick="togglePositive(event)"></div>
+</label>
+</div>
+</div>
+<div id="positiveBanner" class="hidden bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-5 py-3 text-[13px] font-medium flex items-center gap-3">
+<i class="fa-solid fa-award text-yellow-300 text-lg"></i>
+<span><b>Positive Observation Mode:</b> Severity → <b>Impact Benefit</b> &nbsp;•&nbsp; Likelihood → <b>Replicability</b> &nbsp;•&nbsp; Scoring celebrates good practice (Notable → Outstanding).</span>
+</div>
+</div>
+
+<!-- 01 BASIC -->
+<section class="card no-print">
+<div class="card-head bg-gradient-to-r from-slate-50 to-white"><div class="num-badge bg-navy-900">01</div><div><h3 class="font-display font-extrabold text-[15px]">Basic Information</h3><p class="text-[12px] text-slate-500">Project & officer identity • auto date/time</p></div><span class="ml-auto text-[11px] font-bold text-slate-400"><i class="fa-regular fa-circle-check text-emerald-500"></i> REQUIRED</span></div>
+<div class="p-5 grid sm:grid-cols-2 gap-4">
+<div><label class="lbl">Project Name *</label><input id="projectName" class="inp" placeholder="e.g. Marina Gate Tower – Phase 2"/></div>
+<div><label class="lbl">Safety Officer Name *</label><input id="officerName" class="inp" placeholder="e.g. Ahmed Al Mansoori"/></div>
+<div><label class="lbl">Report Date</label><input id="reportDate" type="date" class="inp"/></div>
+<div><label class="lbl">Report Time</label><input id="reportTime" type="time" class="inp"/></div>
+<div><label class="lbl">Shift / Contract</label><select id="shift" class="inp"><option>Day Shift (07:00 – 19:00)</option><option>Night Shift (19:00 – 07:00)</option><option>General / Office Hours</option></select></div>
+<div><label class="lbl">Weather / Site Condition</label><select id="weather" class="inp"><option>Clear / Normal</option><option>Hot / High Temp</option><option>Windy / Dusty</option><option>Rain / Wet Surface</option><option>Low Visibility (Night)</option></select></div>
+</div>
+</section>
+
+<!-- 02 OBSERVATION -->
+<section class="card no-print">
+<div class="card-head bg-gradient-to-r from-orange-50 to-white"><div class="num-badge bg-safety-500 !text-navy-950">02</div><div><h3 class="font-display font-extrabold text-[15px]">Observation Entry</h3><p class="text-[12px] text-slate-500">Where • What • Who • Hazard details</p></div></div>
+<div class="p-5 grid sm:grid-cols-2 gap-4">
+<div><label class="lbl">Observation Date</label><input id="obsDate" type="date" class="inp"/></div>
+<div><label class="lbl">Observation Time</label><input id="obsTime" type="time" class="inp"/></div>
+<div><label class="lbl">Location *</label><input id="location" class="inp" placeholder="e.g. Grid C-4, Level 12 Slab"/></div>
+<div><label class="lbl">Area / Zone</label><select id="area" class="inp"><option>Zone A – Main Structure</option><option>Zone B – Excavation & Foundations</option><option>Zone C – MEP & Finishing</option><option>Laydown / Storage Yard</option><option>Batching Plant</option><option>Scaffold / Façade</option><option>Site Entrance & Access</option><option>Labour Camp / Welfare</option><option>Office / Temporary Facilities</option><option>Plant & Workshop</option><option>Perimeter / Public Interface</option></select></div>
+<div><label class="lbl">Observation Type</label><select id="obsType" class="inp" onchange="onObsTypeChange()">
+<option>Unsafe Act</option><option>Unsafe Condition</option><option>Housekeeping</option><option>PPE Non-Compliance</option><option>Working at Height</option><option>Scaffolding / Formwork</option><option>Electrical Safety</option><option>Excavation / Civil Works</option><option>Lifting, Rigging & Cranes</option><option>Fire Prevention & Hot Work</option><option>Chemical / Hazardous Material</option><option>Plant, Machinery & Vehicles</option><option>Environmental</option><option>Near Miss</option><option>Good Practice / Positive Observation</option><option>Other</option>
+</select></div>
+<div><label class="lbl">Hazard Identified</label><select id="hazard" class="inp"><option>Fall from Height</option><option>Slip, Trip & Fall</option><option>Struck By / Struck Against</option><option>Caught In / Between</option><option>Electrical Shock / Arc Flash</option><option>Fire / Explosion</option><option>Chemical / Dust / Fumes</option><option>Noise / Vibration</option><option>Ergonomic / Manual Handling</option><option>Biological</option><option>Vehicle / Mobile Plant</option><option>Confined Space</option><option>Structural Collapse</option><option>Environmental Spill</option><option>No Immediate Hazard (Positive)</option><option>Other</option></select></div>
+<div class="sm:col-span-2"><label class="lbl">Observation Description *</label><textarea id="description" rows="3" class="inp" placeholder="Describe exactly what was observed... e.g. Worker on unguarded edge at Level 12 without harness; materials blocking emergency walkway..."></textarea><p class="text-[11px] text-slate-400 mt-1"><span id="descCount">0</span>/800 characters • Be specific: who, what, where, equipment involved.</p></div>
+<div><label class="lbl">Responsible Person Identified</label><input id="responsiblePerson" class="inp" placeholder="e.g. Site Foreman – R. Kumar"/></div>
+<div><label class="lbl">Company / Vendor / Subcontractor</label><input id="vendorCompany" class="inp" placeholder="e.g. ABC Contracting LLC"/></div>
+<div class="sm:col-span-2"><label class="lbl">Any Other Observations</label><input id="otherObs" class="inp" placeholder="Additional notes, repeat violation?, similar areas affected..."/></div>
+</div>
+</section>
+
+<!-- 03 RISK -->
+<section id="riskCard" class="card no-print border-t-4 !border-t-red-500">
+<div class="card-head"><div class="num-badge bg-red-600">03</div><div><h3 id="riskTitle" class="font-display font-extrabold text-[15px]">Risk Assessment — 5 × 5 Matrix</h3><p id="riskSub" class="text-[12px] text-slate-500">Severity × Likelihood = Risk Score → Level</p></div><div class="ml-auto text-right"><p class="text-[10px] font-bold tracking-widest text-slate-400">SCORE</p><p class="font-display font-black text-2xl leading-none"><span id="scoreBig">–</span> <span class="text-sm text-slate-400">/25</span></p></div></div>
+<div class="p-5 grid md:grid-cols-2 gap-5">
+<div>
+<label class="lbl" id="sevLabel">Severity (1 – Negligible → 5 – Catastrophic)</label>
+<div class="grid grid-cols-5 gap-2 mb-4" id="sevRow">
+<button class="sev-btn" data-v="1">1<small>NEGLIG.</small></button>
+<button class="sev-btn" data-v="2">2<small>MINOR</small></button>
+<button class="sev-btn" data-v="3">3<small>MODER.</small></button>
+<button class="sev-btn" data-v="4">4<small>MAJOR</small></button>
+<button class="sev-btn" data-v="5">5<small>CATAST.</small></button>
+</div>
+<label class="lbl" id="likLabel">Likelihood (1 – Rare → 5 – Almost Certain)</label>
+<div class="grid grid-cols-5 gap-2" id="likRow">
+<button class="lik-btn" data-v="1">1<small>RARE</small></button>
+<button class="lik-btn" data-v="2">2<small>UNLIKELY</small></button>
+<button class="lik-btn" data-v="3">3<small>POSSIBLE</small></button>
+<button class="lik-btn" data-v="4">4<small>LIKELY</small></button>
+<button class="lik-btn" data-v="5">5<small>CERTAIN</small></button>
+</div>
+<div class="mt-4 p-3 rounded-xl bg-slate-50 border text-[12px] text-slate-600 leading-relaxed" id="riskExplain">Select severity & likelihood. <b>Score = S × L.</b> Low 1–4 • Medium 5–9 • High 10–15 • Critical 16–25.</div>
+</div>
+<div>
+<div class="flex items-center justify-between mb-2"><span class="text-[11px] font-bold tracking-widest text-slate-500">5×5 MATRIX (CLICK TO SET)</span><span class="text-[11px] font-bold text-slate-400">▲ Severity</span></div>
+<div id="matrix" class="grid grid-cols-5 gap-1.5"></div>
+<p class="text-center text-[11px] font-bold tracking-widest text-slate-400 mt-2">LIKELIHOOD ►</p>
+<div id="riskResult" class="mt-3 rounded-2xl p-4 text-center border-2 border-dashed border-slate-200">
+<p class="text-[11px] font-bold tracking-[.2em] text-slate-500">RISK LEVEL</p>
+<p id="riskLevelBig" class="font-display font-black text-3xl tracking-tight">— SELECT —</p>
+<p id="riskActionHint" class="text-[12.5px] mt-1 text-slate-600"></p>
+</div>
+</div>
+</div>
+<div class="px-5 pb-5"><label class="lbl">Immediate Corrective Action Taken / Required</label><textarea id="correctiveAction" rows="2" class="inp" placeholder="e.g. Work stopped, area barricaded, harness issued, toolbox talk conducted, re-inspection scheduled..."></textarea></div>
+</section>
+
+<!-- 04 PHOTOS -->
+<section class="card no-print">
+<div class="card-head bg-gradient-to-r from-sky-50 to-white"><div class="num-badge bg-sky-600">04</div><div><h3 class="font-display font-extrabold text-[15px]">Photo Evidence — Before & After</h3><p class="text-[12px] text-slate-500">Upload • Image Link • Live Camera (cloud-direct, not saved to device)</p></div></div>
+<div class="p-5 grid md:grid-cols-2 gap-5">
+<!-- BEFORE -->
+<div class="photo-slot p-3" id="slotBefore">
+<div class="flex items-center justify-between mb-2"><span class="font-display font-extrabold text-[13px]"><span class="bg-red-600 text-white text-[10px] px-2 py-1 rounded-md mr-2">BEFORE</span> Condition Found</span><button onclick="clearPhoto('before')" class="text-[11px] font-bold text-slate-400 hover:text-red-600"><i class="fa-solid fa-trash"></i> Clear</button></div>
+<div class="relative rounded-xl overflow-hidden bg-slate-200 aspect-[4/3] flex items-center justify-center">
+<img id="imgBefore" class="absolute inset-0 w-full h-full object-cover hidden"/>
+<div id="phBefore" class="text-center text-slate-400 px-6"><i class="fa-solid fa-camera text-3xl mb-2"></i><p class="text-[12px] font-semibold">No photo yet — choose a method below</p></div>
+<span id="srcBefore" class="absolute top-2 left-2 text-[10px] font-bold bg-navy-950/80 text-white px-2 py-1 rounded-md hidden"></span>
+</div>
+<div class="flex gap-1 mt-2 bg-slate-100 p-1 rounded-lg">
+<button class="tab-btn active flex-1" data-slot="before" data-tab="upload" onclick="switchTab('before','upload')"><i class="fa-solid fa-upload"></i> Upload</button>
+<button class="tab-btn flex-1" data-slot="before" data-tab="link" onclick="switchTab('before','link')"><i class="fa-solid fa-link"></i> Link</button>
+<button class="tab-btn flex-1" data-slot="before" data-tab="camera" onclick="switchTab('before','camera')"><i class="fa-solid fa-video"></i> Camera</button>
+</div>
+<div class="mt-2" id="panel-before-upload"><label class="btn w-full justify-center bg-navy-900 text-white hover:bg-navy-700 cursor-pointer"><i class="fa-solid fa-cloud-arrow-up"></i> Choose from device<input type="file" accept="image/*" class="hidden" onchange="filePhoto('before',this)"/></label></div>
+<div class="mt-2 hidden" id="panel-before-link"><div class="flex gap-2"><input id="urlBefore" class="inp !py-2" placeholder="Paste image URL https://..."/><button onclick="linkPhoto('before')" class="btn bg-sky-600 text-white shrink-0">Load</button></div></div>
+<div class="mt-2 hidden" id="panel-before-camera"><button onclick="openCamera('before')" class="btn w-full justify-center bg-rose-600 text-white"><i class="fa-solid fa-camera"></i> Open Live Camera & Capture</button><p class="text-[10.5px] text-slate-500 mt-1 text-center">Captured frame goes straight to report memory (cloud-ready).</p></div>
+<input id="capBefore" class="inp mt-2 !py-2" placeholder="Caption (e.g. Blocked walkway, Level 3)"/>
+</div>
+<!-- AFTER -->
+<div class="photo-slot p-3" id="slotAfter">
+<div class="flex items-center justify-between mb-2"><span class="font-display font-extrabold text-[13px]"><span class="bg-emerald-600 text-white text-[10px] px-2 py-1 rounded-md mr-2">AFTER</span> Rectified / Good Practice</span><button onclick="clearPhoto('after')" class="text-[11px] font-bold text-slate-400 hover:text-red-600"><i class="fa-solid fa-trash"></i> Clear</button></div>
+<div class="relative rounded-xl overflow-hidden bg-slate-200 aspect-[4/3] flex items-center justify-center">
+<img id="imgAfter" class="absolute inset-0 w-full h-full object-cover hidden"/>
+<div id="phAfter" class="text-center text-slate-400 px-6"><i class="fa-solid fa-circle-check text-3xl mb-2 text-emerald-300"></i><p class="text-[12px] font-semibold">No photo yet — choose a method below</p></div>
+<span id="srcAfter" class="absolute top-2 left-2 text-[10px] font-bold bg-navy-950/80 text-white px-2 py-1 rounded-md hidden"></span>
+</div>
+<div class="flex gap-1 mt-2 bg-slate-100 p-1 rounded-lg">
+<button class="tab-btn active flex-1" data-slot="after" data-tab="upload" onclick="switchTab('after','upload')"><i class="fa-solid fa-upload"></i> Upload</button>
+<button class="tab-btn flex-1" data-slot="after" data-tab="link" onclick="switchTab('after','link')"><i class="fa-solid fa-link"></i> Link</button>
+<button class="tab-btn flex-1" data-slot="after" data-tab="camera" onclick="switchTab('after','camera')"><i class="fa-solid fa-video"></i> Camera</button>
+</div>
+<div class="mt-2" id="panel-after-upload"><label class="btn w-full justify-center bg-navy-900 text-white hover:bg-navy-700 cursor-pointer"><i class="fa-solid fa-cloud-arrow-up"></i> Choose from device<input type="file" accept="image/*" class="hidden" onchange="filePhoto('after',this)"/></label></div>
+<div class="mt-2 hidden" id="panel-after-link"><div class="flex gap-2"><input id="urlAfter" class="inp !py-2" placeholder="Paste image URL https://..."/><button onclick="linkPhoto('after')" class="btn bg-sky-600 text-white shrink-0">Load</button></div></div>
+<div class="mt-2 hidden" id="panel-after-camera"><button onclick="openCamera('after')" class="btn w-full justify-center bg-rose-600 text-white"><i class="fa-solid fa-camera"></i> Open Live Camera & Capture</button><p class="text-[10.5px] text-slate-500 mt-1 text-center">Captured frame goes straight to report memory (cloud-ready).</p></div>
+<input id="capAfter" class="inp mt-2 !py-2" placeholder="Caption (e.g. Walkway cleared & barricaded)"/>
+</div>
+</div>
+</section>
+
+<!-- 05 STATUS + SIGN -->
+<section class="card no-print">
+<div class="card-head bg-gradient-to-r from-emerald-50 to-white"><div class="num-badge bg-emerald-600">05</div><div><h3 class="font-display font-extrabold text-[15px]">Status, Remarks & Signatures</h3><p class="text-[12px] text-slate-500">Closure • PLC verification • Observer / Responsible / PMC</p></div></div>
+<div class="p-5 grid sm:grid-cols-3 gap-4">
+<div><label class="lbl">Status</label><select id="status" class="inp !border-l-4 !border-l-safety-500" onchange="syncStatusPill()"><option>Open</option><option>In Progress</option><option>Pending</option><option>Closed</option><option>Verified</option><option>Overdue</option></select></div>
+<div><label class="lbl">Priority</label><select id="priority" class="inp"><option>Medium</option><option>Low</option><option>High</option><option>Critical</option></select></div>
+<div><label class="lbl">Target Closure Date</label><input id="targetDate" type="date" class="inp"/></div>
+<div class="sm:col-span-3"><label class="lbl">Remarks / Follow-up</label><textarea id="remarks" rows="2" class="inp" placeholder="Follow-up inspection, training needed, escalation..."></textarea></div>
+<div class="sm:col-span-3 grid sm:grid-cols-2 gap-3">
+<label class="flex items-start gap-2 text-[13px] bg-slate-50 border rounded-xl p-3 cursor-pointer"><input id="observerConfirm" type="checkbox" class="mt-1 accent-orange-500 w-4 h-4" checked/> <span><b>Observer confirmation:</b> I confirm this observation is true, accurate and recorded at the stated date/time.</span></label>
+<label class="flex items-start gap-2 text-[13px] bg-slate-50 border rounded-xl p-3 cursor-pointer"><input id="plcVerified" type="checkbox" class="mt-1 accent-emerald-600 w-4 h-4"/> <span><b>Verified by PLC:</b> Project Leadership / Safety Lead has reviewed & verified this report. Name: <input id="plcName" class="inp !py-1 mt-1" placeholder="PLC verifier name"/></span></label>
+</div>
+</div>
+<div class="px-5 pb-5 grid md:grid-cols-3 gap-4">
+<div><label class="lbl">Observer — Name & Date</label><input id="obsSigName" class="inp mb-2" placeholder="Observer name"/><div class="sig-wrap"><canvas id="sigObserver"></canvas><div class="sig-line"></div><span class="absolute top-2 right-2 text-[10px] font-bold bg-navy-900 text-white px-2 py-0.5 rounded">OBSERVER ✍</span></div><div class="flex justify-between mt-1.5"><input id="obsSigDate" type="date" class="inp !py-1 !w-[60%] !text-[12px]"/><button onclick="clearSig('observer')" class="text-[11px] font-bold text-slate-400 hover:text-red-600">Clear</button></div></div>
+<div><label class="lbl">Responsible Person — Name & Date</label><input id="respSigName" class="inp mb-2" placeholder="Responsible person name"/><div class="sig-wrap"><canvas id="sigResponsible"></canvas><div class="sig-line"></div><span class="absolute top-2 right-2 text-[10px] font-bold bg-safety-500 text-navy-950 px-2 py-0.5 rounded">RESPONSIBLE ✍</span></div><div class="flex justify-between mt-1.5"><input id="respSigDate" type="date" class="inp !py-1 !w-[60%] !text-[12px]"/><button onclick="clearSig('responsible')" class="text-[11px] font-bold text-slate-400 hover:text-red-600">Clear</button></div></div>
+<div><label class="lbl">PMC Verification — Name, Status & Sign</label><div class="flex gap-2 mb-2"><input id="pmcName" class="inp" placeholder="PMC name"/><select id="pmcStatus" class="inp !w-[130px]"><option>Pending</option><option>Approved</option><option>Rejected</option><option>Verified</option></select></div><div class="sig-wrap"><canvas id="sigPMC"></canvas><div class="sig-line"></div><span class="absolute top-2 right-2 text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded">PMC ✓</span></div><div class="flex justify-between mt-1.5"><input id="pmcDate" type="date" class="inp !py-1 !w-[60%] !text-[12px]"/><button onclick="clearSig('pmc')" class="text-[11px] font-bold text-slate-400 hover:text-red-600">Clear</button></div></div>
+</div>
+</section>
+
+<!-- ACTIONS -->
+<div class="no-print card p-4 flex flex-wrap gap-2 items-center sticky bottom-3 z-30 !border-safety-500 border-2">
+<button onclick="saveReport()" class="btn bg-navy-900 text-white hover:bg-navy-700 !px-6 !py-3"><i class="fa-solid fa-floppy-disk"></i> Save Report</button>
+<button onclick="updateReport()" class="btn bg-safety-500 text-navy-950 hover:bg-safety-400 !px-5 !py-3"><i class="fa-solid fa-rotate"></i> Update</button>
+<button onclick="previewA4()" class="btn bg-white border-slate-300 hover:border-navy-900"><i class="fa-solid fa-eye"></i> A4 Preview</button>
+<button onclick="newReport(true)" class="btn bg-white border-slate-300 hover:border-red-400 hover:text-red-600"><i class="fa-solid fa-eraser"></i> Clear</button>
+<div class="ml-auto flex gap-2 flex-wrap">
+<button onclick="doPrint()" class="btn bg-slate-900 text-white"><i class="fa-solid fa-print"></i> Print A4</button>
+<button onclick="exportPDF()" class="btn bg-emerald-600 text-white"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+<button onclick="exportExcel()" class="btn bg-[#217346] text-white"><i class="fa-solid fa-file-excel"></i> Excel</button>
+</div>
+</div>
+<p class="no-print text-center text-[11px] text-slate-400 -mt-2">Single A4 print-ready • Unique ID per report • All data + photos + logos + signatures export together</p>
+</div>
+
+<!-- RIGHT SIDEBAR -->
+<aside class="space-y-5 no-print lg:sticky lg:top-[130px]">
+<div class="card overflow-hidden">
+<div class="bg-gradient-to-br from-navy-950 to-navy-700 text-white p-4 text-center">
+<p class="text-[10px] font-bold tracking-[.25em] text-safety-400">LIVE RISK DIAL</p>
+<div class="relative w-[150px] h-[80px] mx-auto mt-2 overflow-hidden">
+<div class="absolute inset-x-0 top-0 h-[150px] rounded-full border-[16px] border-white/15 border-b-transparent border-l-transparent rotate-[-45deg]"></div>
+<div id="riskDial" class="absolute inset-x-0 top-0 h-[150px] rounded-full border-[16px] border-safety-400 border-b-transparent border-l-transparent rotate-[-45deg]" style="filter:drop-shadow(0 0 8px rgba(255,176,32,.7))"></div>
+<div class="absolute bottom-0 inset-x-0 text-center"><span id="dialScore" class="font-display font-black text-3xl">–</span><p id="dialLevel" class="text-[11px] font-bold tracking-widest">AWAITING INPUT</p></div>
+</div>
+</div>
+<div class="p-4">
+<div class="flex justify-between text-[11px] font-bold text-slate-500 mb-1"><span>LOW</span><span>MEDIUM</span><span>HIGH</span><span>CRITICAL</span></div>
+<div class="h-3 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 via-40% via-orange-500 to-red-600"></div>
+<div id="riskAdvice" class="mt-3 text-[12.5px] bg-slate-50 border rounded-xl p-3 text-slate-600">Complete Section 03 to calculate risk automatically.</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-head"><div class="num-badge bg-indigo-600 !w-8 !h-8 !text-[13px]"><i class="fa-solid fa-building"></i></div><div><h3 class="font-display font-extrabold text-[14px]">Company / Vendor Logos</h3><p class="text-[11px] text-slate-500">Printed on A4 • Saved per report</p></div></div>
+<div class="p-4 grid grid-cols-2 gap-3">
+<div class="text-center"><div class="border-2 border-dashed border-slate-200 rounded-xl h-[90px] flex items-center justify-center overflow-hidden bg-slate-50"><img id="clientLogoPrev" class="max-h-full max-w-full object-contain hidden"/><span id="clientLogoPh" class="text-[11px] font-bold text-slate-400">CLIENT<br/>LOGO</span></div><label class="btn w-full justify-center mt-2 bg-slate-900 text-white !py-2 !text-[11px] cursor-pointer"><i class="fa-solid fa-upload"></i> Client<input type="file" accept="image/*" class="hidden" onchange="logoFile('client',this)"/></label><input id="clientName" class="inp mt-2 !py-1.5 !text-[11px]" placeholder="Client name"/></div>
+<div class="text-center"><div class="border-2 border-dashed border-slate-200 rounded-xl h-[90px] flex items-center justify-center overflow-hidden bg-slate-50"><img id="vendorLogoPrev" class="max-h-full max-w-full object-contain hidden"/><span id="vendorLogoPh" class="text-[11px] font-bold text-slate-400">VENDOR<br/>LOGO</span></div><label class="btn w-full justify-center mt-2 bg-safety-500 text-navy-950 !py-2 !text-[11px] cursor-pointer"><i class="fa-solid fa-upload"></i> Vendor<input type="file" accept="image/*" class="hidden" onchange="logoFile('vendor',this)"/></label><input id="vendorLogoName" class="inp mt-2 !py-1.5 !text-[11px]" placeholder="Vendor name"/></div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-head"><div class="num-badge bg-navy-900 !w-8 !h-8 !text-[13px]"><i class="fa-solid fa-database"></i></div><div class="flex-1"><h3 class="font-display font-extrabold text-[14px]">Saved Reports Library</h3><p class="text-[11px] text-slate-500"><span id="libCount">0</span> records • click to load full data</p></div></div>
+<div class="p-3 border-b flex gap-2">
+<div class="flex items-center bg-slate-100 rounded-xl px-3 py-2 gap-2 flex-1"><i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i><input id="libSearch" oninput="renderLibrary()" placeholder="Search ID, project, officer..." class="bg-transparent outline-none text-[13px] w-full"/></div>
+<select id="libFilter" onchange="renderLibrary()" class="inp !w-[110px] !py-2 !text-[12px]"><option value="">All Status</option><option>Open</option><option>In Progress</option><option>Pending</option><option>Closed</option><option>Verified</option><option>Positive</option></select>
+</div>
+<div id="libraryList" class="p-3 space-y-2 max-h-[420px] overflow-y-auto"></div>
+</div>
+
+<div class="card p-4">
+<h3 class="font-display font-extrabold text-[14px] mb-3"><i class="fa-solid fa-chart-simple text-safety-500 mr-2"></i>Risk Analytics</h3>
+<div id="analytics" class="space-y-2 text-[12px] font-semibold"></div>
+<div class="mt-3 p-3 rounded-xl bg-navy-950 text-white text-[11.5px] leading-relaxed"><i class="fa-solid fa-lightbulb text-safety-400 mr-1"></i> <b>A4 Tip:</b> Use <b>A4 Preview → Print → Save as PDF</b> for pixel-perfect single-sheet. Excel export keeps alignment with frozen headers & auto-width.</div>
+</div>
+</aside>
+</div>
+</div>
+
+<footer class="no-print mt-8">
+<div class="hazard-strip h-[7px]"></div>
+<div class="bg-navy-950 text-slate-300 text-center py-5 px-4 text-[12px]">
+<p class="font-display font-bold text-white tracking-wide">SAFESIGHT 360 • DAILY SAFETY OBSERVATION SYSTEM</p>
+<p class="mt-1">Zero Harm Culture • Report • Rectify • Recognise • Repeat &nbsp;|&nbsp; Observer sign • Responsible sign • PMC verify</p>
+</div>
+</footer>
+
+<!-- CAMERA MODAL -->
+<div id="camModal" class="no-print hidden fixed inset-0 z-50 bg-navy-950/80 backdrop-blur flex items-center justify-center p-4">
+<div class="bg-white rounded-2xl max-w-[560px] w-full overflow-hidden shadow-pop">
+<div class="bg-navy-950 text-white px-5 py-3 flex items-center gap-3"><i class="fa-solid fa-video text-safety-400"></i><h3 class="font-display font-bold">Live Camera Capture — <span id="camSlotLbl" class="text-safety-400">BEFORE</span></h3><button onclick="closeCamera()" class="ml-auto text-slate-300 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+<div class="p-4"><video id="camVideo" autoplay playsinline class="w-full rounded-xl bg-black aspect-video object-cover"></video><canvas id="camCanvas" class="hidden"></canvas>
+<p class="text-[11.5px] text-slate-500 mt-2 text-center"><i class="fa-solid fa-cloud text-sky-500"></i> Frame is captured directly into report memory (cloud-ready) — nothing is saved to this device gallery.</p>
+<div class="flex gap-2 mt-3"><button onclick="captureFrame()" class="btn flex-1 justify-center bg-rose-600 text-white !py-3"><i class="fa-solid fa-camera"></i> Capture Frame</button><button onclick="closeCamera()" class="btn bg-slate-100">Cancel</button></div></div>
+</div>
+</div>
+
+<!-- A4 MODAL -->
+<div id="a4Modal" class="hidden fixed inset-0 z-50 bg-navy-950/85 backdrop-blur overflow-y-auto p-3 sm:p-6">
+<div class="modal-box max-w-[230mm] mx-auto bg-white rounded-2xl overflow-hidden shadow-pop">
+<div class="print-hide bg-navy-950 text-white px-5 py-3 flex flex-wrap items-center gap-2 sticky top-0 z-10">
+<span class="font-display font-bold text-[14px]"><i class="fa-solid fa-file-lines text-safety-400 mr-2"></i>A4 PRINT SHEET — Single Page Preview</span>
+<div class="ml-auto flex gap-2 flex-wrap">
+<button onclick="doPrint()" class="btn bg-safety-500 text-navy-950 !py-2"><i class="fa-solid fa-print"></i> Print</button>
+<button onclick="exportPDF()" class="btn bg-emerald-500 text-white !py-2"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+<button onclick="exportExcel()" class="btn bg-[#217346] text-white !py-2"><i class="fa-solid fa-file-excel"></i> Excel</button>
+<button onclick="closeA4()" class="btn bg-white/15 text-white !py-2"><i class="fa-solid fa-xmark"></i> Close</button>
+</div>
+</div>
+<div class="overflow-x-auto bg-slate-300/60 p-3 sm:p-6 flex justify-center">
+<div id="a4Sheet" class="shadow-pop shrink-0">
+<!-- A4 header -->
+<div class="flex items-center gap-3 border-[2px] border-[#0f1e3a] p-2">
+<div class="w-[86px] h-[52px] border border-[#9aa9c0] flex items-center justify-center overflow-hidden bg-white shrink-0"><img id="a4ClientLogo" class="max-w-full max-h-full object-contain hidden"/><span id="a4ClientPh" class="text-[7pt] font-bold text-slate-400 text-center">CLIENT<br/>LOGO</span></div>
+<div class="flex-1 text-center">
+<p class="a4-h text-[13pt] leading-tight tracking-tight">DAILY SAFETY OBSERVATION REPORT</p>
+<p class="text-[7.5pt] tracking-[.18em] font-bold text-[#8a6d00]">SAFETY MEASURES • FIELD OBSERVATION • CORRECTIVE ACTION • VERIFICATION</p>
+<p id="a4Project" class="text-[8.5pt] font-bold mt-[1px]">— Project —</p>
+</div>
+<div class="w-[86px] h-[52px] border border-[#9aa9c0] flex items-center justify-center overflow-hidden bg-white shrink-0"><img id="a4VendorLogo" class="max-w-full max-h-full object-contain hidden"/><span id="a4VendorPh" class="text-[7pt] font-bold text-slate-400 text-center">VENDOR<br/>LOGO</span></div>
+</div>
+<div class="flex items-stretch gap-0 mt-[6px]">
+<div class="flex-1 bg-[#0f1e3a] text-white px-2 py-[5px] flex items-center gap-2"><span class="text-[7pt] font-bold tracking-widest opacity-70">REPORT ID</span><span id="a4Id" class="a4-h text-[11pt] text-[#ffb020]">OBS-...</span><span class="ml-auto text-[7pt] font-bold"><span id="a4Date">—</span> • <span id="a4Time">—</span> • <span id="a4Shift">—</span></span></div>
+<div id="a4Status" class="px-3 flex items-center font-black text-[9pt] tracking-widest bg-[#ffb020]">OPEN</div>
+</div>
+<div id="a4PositiveBar" class="hidden mt-[5px] bg-[#059669] text-white text-[8pt] font-bold px-2 py-[4px] text-center tracking-wide">★ POSITIVE OBSERVATION / GOOD PRACTICE — COMMENDED & TO BE REPLICATED ★</div>
+<!-- tables -->
+<table class="mt-[6px]">
+<tr><th colspan="4" style="text-align:left">1 &nbsp;•&nbsp; Basic Information</th></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td>PROJECT</td><td>SAFETY OFFICER</td><td>REPORT DATE</td><td>REPORT TIME / SHIFT</td></tr>
+<tr><td id="a4Project2" style="font-weight:700">—</td><td id="a4Officer">—</td><td id="a4RDate">—</td><td id="a4RTime">—</td></tr>
+</table>
+<table class="mt-[5px]">
+<tr><th colspan="4" style="text-align:left">2 &nbsp;•&nbsp; Observation Entry</th></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td style="width:25%">OBS. DATE / TIME</td><td style="width:28%">LOCATION / AREA</td><td style="width:24%">OBSERVATION TYPE</td><td>HAZARD IDENTIFIED</td></tr>
+<tr><td id="a4ObsDT">—</td><td id="a4Loc">—</td><td id="a4Type" style="font-weight:800">—</td><td id="a4Hazard">—</td></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td colspan="2">DESCRIPTION OF OBSERVATION</td><td>RESPONSIBLE PERSON</td><td>COMPANY / VENDOR</td></tr>
+<tr><td colspan="2" id="a4Desc" style="min-height:28px">—</td><td id="a4Resp">—</td><td id="a4Vendor">—</td></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td colspan="4">OTHER OBSERVATIONS</td></tr>
+<tr><td colspan="4" id="a4Other">—</td></tr>
+</table>
+<table class="mt-[5px]">
+<tr><th colspan="4" style="text-align:left">3 &nbsp;•&nbsp; Risk Assessment (5 × 5) & Corrective Action</th></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td>SEVERITY (S)</td><td>LIKELIHOOD (L)</td><td>SCORE (S × L)</td><td>RISK LEVEL</td></tr>
+<tr style="text-align:center;font-weight:900;font-size:11pt"><td id="a4Sev">—</td><td id="a4Lik">—</td><td id="a4Score">—</td><td id="a4Level"><span id="a4LevelBadge" style="padding:3px 12px;border-radius:99px;font-size:9pt">—</span></td></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td colspan="2">IMMEDIATE CORRECTIVE ACTION</td><td>PRIORITY</td><td>TARGET DATE</td></tr>
+<tr><td colspan="2" id="a4Action">—</td><td id="a4Priority">—</td><td id="a4Target">—</td></tr>
+</table>
+<table class="mt-[5px]">
+<tr><th colspan="2" style="text-align:left">4 &nbsp;•&nbsp; Photo Evidence — Before & After</th></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td style="width:50%">◼ BEFORE — CONDITION FOUND</td><td>◼ AFTER — RECTIFIED / GOOD PRACTICE</td></tr>
+<tr>
+<td style="text-align:center"><img id="a4Before" style="width:100%;height:30mm;object-fit:cover;border:1px solid #9aa9c0;display:block;background:#f1f5f9"/><div id="a4BeforeCap" style="font-size:7pt;font-style:italic;margin-top:2px">—</div></td>
+<td style="text-align:center"><img id="a4After" style="width:100%;height:30mm;object-fit:cover;border:1px solid #9aa9c0;display:block;background:#f1f5f9"/><div id="a4AfterCap" style="font-size:7pt;font-style:italic;margin-top:2px">—</div></td>
+</tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td>STATUS</td><td>REMARKS / FOLLOW-UP</td></tr>
+<tr><td id="a4Status2" style="font-weight:800">—</td><td id="a4Remarks">—</td></tr>
+</table>
+<table class="mt-[5px]">
+<tr><th colspan="3" style="text-align:left">5 &nbsp;•&nbsp; Signatures & Verification — Observer • Responsible • PMC</th></tr>
+<tr style="background:#eef2f7;font-size:7pt;font-weight:800"><td style="width:33%">OBSERVER (NAME / SIGN / DATE)</td><td style="width:34%">RESPONSIBLE PERSON (NAME / SIGN / DATE)</td><td>PMC VERIFICATION (NAME / SIGN / DATE / STATUS)</td></tr>
+<tr>
+<td><div style="font-weight:800" id="a4ObsName">—</div><img id="a4ObsSig" style="height:14mm;max-width:100%;object-fit:contain"/><div style="border-top:1px solid #0f1e3a;font-size:7pt">Signature &nbsp;&nbsp;&nbsp;&nbsp; Date: <span id="a4ObsDate">—</span></div></td>
+<td><div style="font-weight:800" id="a4RespName">—</div><img id="a4RespSig" style="height:14mm;max-width:100%;object-fit:contain"/><div style="border-top:1px solid #0f1e3a;font-size:7pt">Signature &nbsp;&nbsp;&nbsp;&nbsp; Date: <span id="a4RespDate">—</span></div></td>
+<td><div style="font-weight:800" id="a4PmcName">—</div><img id="a4PmcSig" style="height:14mm;max-width:100%;object-fit:contain"/><div style="border-top:1px solid #0f1e3a;font-size:7pt">Signature &nbsp;&nbsp;&nbsp;&nbsp; Date: <span id="a4PmcDate">—</span> &nbsp; Status: <b id="a4PmcStatus">—</b></div></td>
+</tr>
+</table>
+<div class="flex items-center gap-2 mt-[5px] border border-[#9aa9c0] px-2 py-[4px] text-[7.5pt]"><span class="font-black">PLC VERIFICATION:</span><span id="a4Plc">☐ Verified by PLC</span><span class="ml-auto">Observer confirmation: <b id="a4Confirm">Yes</b></span></div>
+<div class="mt-[5px] flex items-center justify-between text-[7pt] text-slate-500 border-t-[2px] border-[#0f1e3a] pt-[4px]">
+<span>Unique ID <b id="a4Id2" class="text-[#0f1e3a]">—</b> • This is a controlled safety record — retain for audit</span>
+<span>Generated <span id="a4Gen">—</span> • Page 1 of 1 • A4</span>
+</div>
+<div class="hazard-strip" style="height:5px;margin-top:6px"></div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="toasts" class="no-print fixed bottom-4 right-4 z-[60] space-y-2 w-[320px] max-w-[90vw]"></div>
+
+<script>
+/* ============ STATE ============ */
+let SEL = {sev:0, lik:0, positive:false};
+let PHOTOS = {before:{src:'',kind:''}, after:{src:'',kind:''}};
+let LOGOS = {client:'', vendor:''};
+let editingId = null;
+let camStream = null, camSlot = 'before';
+const LSKEY='safesight_reports_v2';
+const $=id=>document.getElementById(id);
+
+/* ============ HELPERS ============ */
+function toast(msg,type='ok'){
+  const c={ok:'bg-navy-950 border-emerald-400',err:'bg-red-700 border-red-300',info:'bg-navy-800 border-safety-400'}[type];
+  const i={ok:'fa-circle-check text-emerald-400',err:'fa-triangle-exclamation text-yellow-300',info:'fa-circle-info text-safety-400'}[type];
+  const el=document.createElement('div');
+  el.className=`toast ${c} text-white text-[13px] font-medium rounded-xl px-4 py-3 shadow-pop border-l-4 flex gap-2 items-start`;
+  el.innerHTML=`<i class="fa-solid ${i} mt-[2px]"></i><span>${msg}</span>`;
+  $('toasts').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.4s';setTimeout(()=>el.remove(),400)},3400);
+}
+function genID(){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  const date=`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`;
+  return `OBS-${date}-${Math.floor(1000+Math.random()*9000)}`;
+}
+function nowHM(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${p(d.getHours())}:${p(d.getMinutes())}`}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function loadAll(){try{return JSON.parse(localStorage.getItem(LSKEY))||[]}catch(e){return[]}}
+function saveAll(a){try{localStorage.setItem(LSKEY,JSON.stringify(a))}catch(e){toast('Storage full — photos compressed automatically. Try smaller images.','err')}}
+
+/* ============ RISK ============ */
+const sevNames=['','Negligible','Minor','Moderate','Major','Catastrophic'];
+const likNames=['','Rare','Unlikely','Possible','Likely','Almost Certain'];
+const posSevNames=['','Minor Benefit','Moderate Benefit','High Benefit','Major Benefit','Exceptional Benefit'];
+const posLikNames=['','Rarely Seen','Occasionally Seen','Often Replicable','Highly Replicable','Exemplary / Share Site-wide'];
+function levelOf(score,pos){
+  if(!score) return {label:'—',cls:''};
+  if(pos){
+    if(score<=4) return {label:'NOTABLE ★',cls:'risk-positive'};
+    if(score<=9) return {label:'COMMENDABLE ★★',cls:'risk-positive'};
+    if(score<=15) return {label:'EXEMPLARY ★★★',cls:'risk-positive'};
+    return {label:'OUTSTANDING ★★★★',cls:'risk-positive'};
+  }
+  if(score<=4) return {label:'LOW',cls:'risk-low'};
+  if(score<=9) return {label:'MEDIUM',cls:'risk-medium'};
+  if(score<=15) return {label:'HIGH',cls:'risk-high'};
+  return {label:'CRITICAL',cls:'risk-critical'};
+}
+function riskColor(score,pos){
+  if(!score) return '#cbd5e1';
+  if(pos) return '#059669';
+  if(score<=4) return '#22c55e'; if(score<=9) return '#eab308';
+  if(score<=15) return '#f97316'; return '#ef4444';
+}
+function buildMatrix(){
+  const m=$('matrix'); m.innerHTML='';
+  for(let s=5;s>=1;s--) for(let l=1;l<=5;l++){
+    const sc=s*l, lv=levelOf(sc,SEL.positive);
+    const d=document.createElement('div');
+    d.className='matrix-cell'; d.dataset.s=s; d.dataset.l=l;
+    d.style.background=riskColor(sc,SEL.positive);
+    d.innerHTML=`<span>${sc}</span>`;
+    d.title=`S${s} × L${l} = ${sc} (${lv.label})`;
+    d.onclick=()=>{setSev(s);setLik(l)};
+    m.appendChild(d);
+  }
+  highlightMatrix();
+}
+function highlightMatrix(){
+  document.querySelectorAll('.matrix-cell').forEach(c=>{
+    c.classList.toggle('sel', +c.dataset.s===SEL.sev && +c.dataset.l===SEL.lik);
+  });
+}
+function setSev(v){SEL.sev=v;paintSel();calcRisk()}
+function setLik(v){SEL.lik=v;paintSel();calcRisk()}
+function paintSel(){
+  document.querySelectorAll('.sev-btn').forEach(b=>{
+    const v=+b.dataset.v, on=v===SEL.sev;
+    b.classList.toggle('active',on);
+    b.style.background=on?riskColor(v* (SEL.lik||3),SEL.positive):''; b.style.borderColor=on?'transparent':'';
+  });
+  document.querySelectorAll('.lik-btn').forEach(b=>{
+    const v=+b.dataset.v, on=v===SEL.lik;
+    b.classList.toggle('active',on);
+    b.style.background=on?riskColor((SEL.sev||3)*v,SEL.positive):''; b.style.borderColor=on?'transparent':'';
+  });
+  highlightMatrix();
+}
+function calcRisk(){
+  const s=SEL.sev,l=SEL.lik,sc=s*l;
+  const lv=levelOf(sc,SEL.positive);
+  $('scoreBig').textContent=sc||'–';
+  const big=$('riskLevelBig');
+  big.textContent = (!s||!l) ? '— SELECT —' : (SEL.positive? lv.label : lv.label+' RISK');
+  const res=$('riskResult');
+  res.style.borderColor = sc? riskColor(sc,SEL.positive):'#e2e8f0';
+  res.style.background = sc? riskColor(sc,SEL.positive)+'14':'#fff';
+  big.style.color = sc? riskColor(sc,SEL.positive):'#94a3b8';
+  const pill=$('liveRiskPill');
+  pill.textContent='RISK: '+((!s||!l)?'—':sc+' • '+lv.label);
+  pill.style.background=sc?riskColor(sc,SEL.positive):'rgba(255,255,255,.15)';
+  pill.style.color='#fff';
+  // dial
+  const pct=sc? (sc/25*180):0;
+  $('riskDial').style.transform=`rotate(${-45+ (sc? (sc/25*180):0)}deg)`;
+  $('riskDial').style.borderColor=`${riskColor(sc,SEL.positive)} ${riskColor(sc,SEL.positive)} transparent transparent`;
+  $('dialScore').textContent=sc||'–';
+  $('dialLevel').textContent=(!s||!l)?'AWAITING INPUT':lv.label;
+  $('dialLevel').style.color=riskColor(sc,SEL.positive);
+  const hints={
+    'LOW':'Monitor. Correct within routine schedule. Toolbox reminder.',
+    'MEDIUM':'Action within 24–48h. Notify supervisor. Re-inspect.',
+    'HIGH':'Stop / restrict work. Immediate barricade & fix. Escalate to HSE Lead.',
+    'CRITICAL':'STOP WORK immediately. Evacuate if needed. Escalate to PLC/PMC now.'
+  };
+  const phints={'NOTABLE ★':'Thank the crew. Log & share in TBT.','COMMENDABLE ★★':'Recognise publicly. Photo for notice board.','EXEMPLARY ★★★':'Nominate for Safety Star award. Replicate across zones.','OUTSTANDING ★★★★':'Site-wide celebration. Present to client/PMC as best practice.'};
+  $('riskActionHint').textContent = (!s||!l)?'':(SEL.positive? phints[lv.label]||'' : hints[lv.label]||'');
+  $('riskAdvice').innerHTML = (!s||!l)?'Complete Section 03 to calculate risk automatically.':
+    (SEL.positive?`<b style="color:#059669">${posSevNames[s]} × ${posLikNames[l]} = ${sc}</b><br>${$('riskActionHint').textContent}`
+    :`<b>${sevNames[s]} × ${likNames[l]} = ${sc} → ${lv.label}</b><br>${$('riskActionHint').textContent}`);
+  $('riskExplain').innerHTML = SEL.positive
+    ?`Positive mode: <b>Impact Benefit ${s||'–'} × Replicability ${l||'–'} = ${sc||'–'}</b>. Notable 1–4 • Commendable 5–9 • Exemplary 10–15 • Outstanding 16–25.`
+    :`Select severity & likelihood. <b>Score = ${s||'?'} × ${l||'?'} = ${sc||'?'}</b>. Low 1–4 • Medium 5–9 • High 10–15 • Critical 16–25.`;
+}
+function togglePositive(e){ if(e) e.stopPropagation(); SEL.positive=!SEL.positive; applyPositive(); }
+function applyPositive(){
+  $('positiveSwitch').classList.toggle('on',SEL.positive);
+  $('positiveBanner').classList.toggle('hidden',!SEL.positive);
+  $('riskTitle').textContent = SEL.positive?'Positive Impact Assessment — 5 × 5 Opportunity Matrix':'Risk Assessment — 5 × 5 Matrix';
+  $('riskSub').textContent = SEL.positive?'Impact × Replicability = Recognition Score':'Severity × Likelihood = Risk Score → Level';
+  $('sevLabel').textContent = SEL.positive?'Impact / Benefit (1 – Minor → 5 – Exceptional)':'Severity (1 – Negligible → 5 – Catastrophic)';
+  $('likLabel').textContent = SEL.positive?'Replicability (1 – Rare → 5 – Exemplary)':'Likelihood (1 – Rare → 5 – Almost Certain)';
+  $('riskCard').classList.toggle('!border-t-emerald-500',SEL.positive);
+  $('riskCard').classList.toggle('!border-t-red-500',!SEL.positive);
+  if(SEL.positive && $('hazard').value!=='No Immediate Hazard (Positive)'){/* keep */}
+  buildMatrix(); paintSel(); calcRisk();
+}
+function onObsTypeChange(){
+  const v=$('obsType').value;
+  const isPos=/good|positive/i.test(v);
+  if(isPos && !SEL.positive){SEL.positive=true;applyPositive();toast('Positive observation detected — switched to recognition scoring.','info')}
+  else if(!isPos && SEL.positive && v!=='Other'){/* keep manual */}
+}
+
+/* ============ PHOTOS ============ */
+function switchTab(slot,tab){
+  document.querySelectorAll(`.tab-btn[data-slot="${slot}"]`).forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  ['upload','link','camera'].forEach(t=>$('panel-'+slot+'-'+t).classList.toggle('hidden',t!==tab));
+}
+function setPhoto(slot,src,kind){
+  PHOTOS[slot]={src,kind};
+  const img=slot==='before'?$('imgBefore'):$('imgAfter');
+  const ph=slot==='before'?$('phBefore'):$('phAfter');
+  const badge=slot==='before'?$('srcBefore'):$('srcAfter');
+  if(src){img.src=src;img.classList.remove('hidden');ph.classList.add('hidden');badge.classList.remove('hidden');badge.textContent=kind==='camera'?'◉ LIVE CAM • CLOUD':kind==='link'?'🔗 LINK':'⬆ UPLOAD';$('slot'+(slot==='before'?'Before':'After')).classList.add('has-img')}
+  else{img.removeAttribute('src');img.classList.add('hidden');ph.classList.remove('hidden');badge.classList.add('hidden');$('slot'+(slot==='before'?'Before':'After')).classList.remove('has-img')}
+}
+function clearPhoto(slot){setPhoto(slot,'','');toast('Photo cleared.','info')}
+function compress(file,max=900){
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=e=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');let {width:w,height:h}=im;const k=Math.min(1,max/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',.78))};im.src=e.target.result};
+    r.readAsDataURL(file);
+  });
+}
+async function filePhoto(slot,input){
+  const f=input.files[0]; if(!f) return;
+  toast('Compressing & attaching photo...','info');
+  setPhoto(slot,await compress(f),'upload');
+}
+function linkPhoto(slot){
+  const url=(slot==='before'?$('urlBefore'):$('urlAfter')).value.trim();
+  if(!url||!/^https?:\/\/.+\..+/.test(url)){toast('Paste a valid image URL starting with http(s)://','err');return}
+  const probe=new Image();
+  probe.onload=()=>{setPhoto(slot,url,'link');toast('Image link attached.','ok')};
+  probe.onerror=()=>{setPhoto(slot,url,'link');toast('Link attached (preview blocked by host, will still print if valid).','info')};
+  probe.src=url;
+}
+/* camera */
+async function openCamera(slot){
+  camSlot=slot; $('camSlotLbl').textContent=slot.toUpperCase();
+  $('camModal').classList.remove('hidden');
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720}},audio:false});
+    $('camVideo').srcObject=camStream;
+  }catch(e){toast('Camera blocked — allow permission or use Upload/Link.','err')}
+}
+function closeCamera(){ $('camModal').classList.add('hidden'); if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}$('camVideo').srcObject=null; }
+function captureFrame(){
+  const v=$('camVideo'),c=$('camCanvas');
+  if(!v.videoWidth){toast('Camera not ready yet.','err');return}
+  c.width=960;c.height=Math.round(960*v.videoHeight/v.videoWidth);
+  c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  setPhoto(camSlot,c.toDataURL('image/jpeg',.82),'camera');
+  closeCamera(); toast('Live frame captured directly to report (cloud-ready).','ok');
+}
+/* logos */
+async function logoFile(which,input){
+  const f=input.files[0]; if(!f) return;
+  LOGOS[which]=await compress(f,400);
+  const prev=which==='client'?$('clientLogoPrev'):$('vendorLogoPrev');
+  const ph=which==='client'?$('clientLogoPh'):$('vendorLogoPh');
+  prev.src=LOGOS[which];prev.classList.remove('hidden');ph.classList.add('hidden');
+}
+
+/* ============ SIGNATURES ============ */
+const sigPads={};
+function makePad(id){
+  const cv=$(id),ctx=cv.getContext('2d');
+  let drawing=false,empty=true,last=null;
+  function size(){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;const img=empty?null:cv.toDataURL();cv.width=r.width*dpr;cv.height=130*dpr;ctx.scale(dpr,dpr);ctx.lineWidth=2.2;ctx.lineCap='round';ctx.strokeStyle='#0f1e3a';if(img){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,r.width,130);im.src=img}}
+  size();window.addEventListener('resize',size);
+  const pos=e=>{const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top}};
+  cv.addEventListener('mousedown',e=>{drawing=true;last=pos(e)});
+  cv.addEventListener('mousemove',e=>{if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;empty=false});
+  window.addEventListener('mouseup',()=>drawing=false);
+  cv.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;last=pos(e)},{passive:false});
+  cv.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;empty=false},{passive:false});
+  cv.addEventListener('touchend',()=>drawing=false);
+  return{clear(){ctx.clearRect(0,0,cv.width,cv.height);empty=true},get(){return empty?'':cv.toDataURL('image/png')},set(url){if(!url)return;const im=new Image();im.onload=()=>{const r=cv.getBoundingClientRect();ctx.drawImage(im,0,0,r.width,130);empty=false};im.src=url},isEmpty(){return empty}};
+}
+function clearSig(w){sigPads[w].clear()}
+
+/* ============ FORM DATA ============ */
+function formData(id){
+  const s=SEL.sev,l=SEL.lik,sc=s*l;
+  return{
+    id:id||editingId||$('displayId').textContent,
+    createdAt:new Date().toISOString(),
+    basic:{project:$('projectName').value.trim(),officer:$('officerName').value.trim(),date:$('reportDate').value,time:$('reportTime').value,shift:$('shift').value,weather:$('weather').value},
+    observation:{obsDate:$('obsDate').value,obsTime:$('obsTime').value,location:$('location').value.trim(),area:$('area').value,type:$('obsType').value,description:$('description').value.trim(),responsible:$('responsiblePerson').value.trim(),vendor:$('vendorCompany').value,hazard:$('hazard').value,other:$('otherObs').value.trim()},
+    risk:{severity:s,likelihood:l,score:sc,level:levelOf(sc,SEL.positive).label,isPositive:SEL.positive},
+    action:{corrective:$('correctiveAction').value.trim(),before:PHOTOS.before.src,beforeKind:PHOTOS.before.kind,beforeCap:$('capBefore').value.trim(),after:PHOTOS.after.src,afterKind:PHOTOS.after.kind,afterCap:$('capAfter').value.trim()},
+    statusInfo:{status:$('status').value,priority:$('priority').value,target:$('targetDate').value,remarks:$('remarks').value.trim()},
+    signatures:{obsName:$('obsSigName').value.trim(),obsSig:sigPads.observer.get(),obsDate:$('obsSigDate').value,respName:$('respSigName').value.trim(),respSig:sigPads.responsible.get(),respDate:$('respSigDate').value,pmcName:$('pmcName').value.trim(),pmcSig:sigPads.pmc.get(),pmcStatus:$('pmcStatus').value,pmcDate:$('pmcDate').value,plcName:$('plcName').value.trim(),plcVerified:$('plcVerified').checked,observerConfirm:$('observerConfirm').checked},
+    logos:{client:LOGOS.client,vendor:LOGOS.vendor,clientName:$('clientName').value.trim(),vendorName:$('vendorLogoName').value.trim()}
+  };
+}
+function fillForm(r){
+  editingId=r.id; $('displayId').textContent=r.id;
+  $('projectName').value=r.basic.project||'';$('officerName').value=r.basic.officer||'';$('reportDate').value=r.basic.date||'';$('reportTime').value=r.basic.time||'';$('shift').value=r.basic.shift||'';$('weather').value=r.basic.weather||'';
+  $('obsDate').value=r.observation.obsDate||'';$('obsTime').value=r.observation.obsTime||'';$('location').value=r.observation.location||'';$('area').value=r.observation.area||'';$('obsType').value=r.observation.type||'Unsafe Act';$('description').value=r.observation.description||'';$('responsiblePerson').value=r.observation.responsible||'';$('vendorCompany').value=r.observation.vendor||'';$('hazard').value=r.observation.hazard||'';$('otherObs').value=r.observation.other||'';
+  SEL.sev=r.risk.severity||0;SEL.lik=r.risk.likelihood||0;SEL.positive=!!r.risk.isPositive;applyPositive();paintSel();calcRisk();
+  $('correctiveAction').value=r.action.corrective||'';setPhoto('before',r.action.before||'',r.action.beforeKind||'');setPhoto('after',r.action.after||'',r.action.afterKind||'');$('capBefore').value=r.action.beforeCap||'';$('capAfter').value=r.action.afterCap||'';
+  $('status').value=r.statusInfo.status||'Open';$('priority').value=r.statusInfo.priority||'Medium';$('targetDate').value=r.statusInfo.target||'';$('remarks').value=r.statusInfo.remarks||'';
+  $('obsSigName').value=r.signatures.obsName||'';$('obsSigDate').value=r.signatures.obsDate||'';$('respSigName').value=r.signatures.respName||'';$('respSigDate').value=r.signatures.respDate||'';$('pmcName').value=r.signatures.pmcName||'';$('pmcStatus').value=r.signatures.pmcStatus||'Pending';$('pmcDate').value=r.signatures.pmcDate||'';$('plcName').value=r.signatures.plcName||'';$('plcVerified').checked=!!r.signatures.plcVerified;$('observerConfirm').checked=r.signatures.observerConfirm!==false;
+  sigPads.observer.clear();sigPads.responsible.clear();sigPads.pmc.clear();
+  if(r.signatures.obsSig)sigPads.observer.set(r.signatures.obsSig);
+  if(r.signatures.respSig)sigPads.responsible.set(r.signatures.respSig);
+  if(r.signatures.pmcSig)sigPads.pmc.set(r.signatures.pmcSig);
+  LOGOS.client=r.logos.client||'';LOGOS.vendor=r.logos.vendor||'';
+  $('clientName').value=r.logos.clientName||'';$('vendorLogoName').value=r.logos.vendorName||'';
+  [['client','clientLogoPrev','clientLogoPh'],['vendor','vendorLogoPrev','vendorLogoPh']].forEach(([w,p,h])=>{if(LOGOS[w]){$(p).src=LOGOS[w];$(p).classList.remove('hidden');$(h).classList.add('hidden')}});
+  syncStatusPill();countDesc();renderA4(r);
+}
+function validate(d){
+  if(!d.basic.project){toast('Project Name is required.','err');$('projectName').focus();return false}
+  if(!d.basic.officer){toast('Safety Officer Name is required.','err');$('officerName').focus();return false}
+  if(!d.observation.location){toast('Location is required.','err');$('location').focus();return false}
+  if(!d.observation.description){toast('Observation description is required.','err');$('description').focus();return false}
+  if(!d.risk.severity||!d.risk.likelihood){toast('Select Severity & Likelihood to determine risk level.','err');return false}
+  return true;
+}
+
+/* ============ CRUD ============ */
+function saveReport(){
+  const d=formData(genID());
+  if(!validate(d))return;
+  const all=loadAll();all.unshift(d);saveAll(all);
+  editingId=d.id;$('displayId').textContent=d.id;
+  renderLibrary();updateStats();renderA4(d);
+  toast(`Report <b>${d.id}</b> saved • Status: ${d.statusInfo.status} • Risk: ${d.risk.score} (${d.risk.level})`);
+}
+function updateReport(){
+  if(!editingId){toast('No report loaded — use Save for a new report.','info');saveReport();return}
+  const d=formData(editingId);
+  if(!validate(d))return;
+  const all=loadAll();const i=all.findIndex(r=>r.id===editingId);
+  if(i>=0)all[i]=d;else all.unshift(d);
+  saveAll(all);renderLibrary();updateStats();renderA4(d);
+  toast(`Report <b>${d.id}</b> updated successfully.`);
+}
+function newReport(keepToast){
+  editingId=null;$('displayId').textContent=genID();
+  document.querySelectorAll('input[type=text],textarea').forEach(el=>{if(!['libSearch','topSearch'].includes(el.id))el.value=''});
+  ['projectName','officerName','location','description','responsiblePerson','vendorCompany','otherObs','correctiveAction','remarks','obsSigName','respSigName','pmcName','plcName','clientName','vendorLogoName','capBefore','capAfter','urlBefore','urlAfter'].forEach(id=>{if($(id))$(id).value=''});
+  const t=todayISO();$('reportDate').value=t;$('obsDate').value=t;$('obsSigDate').value=t;$('respSigDate').value=t;$('pmcDate').value=t;
+  $('reportTime').value=nowHM();$('obsTime').value=nowHM();
+  $('status').value='Open';$('priority').value='Medium';$('targetDate').value=t;
+  SEL={sev:0,lik:0,positive:false};applyPositive();paintSel();calcRisk();
+  setPhoto('before','','');setPhoto('after','','');
+  Object.values(sigPads).forEach(p=>p.clear());
+  LOGOS={client:'',vendor:''};
+  ['clientLogoPrev','vendorLogoPrev'].forEach(id=>$(id).classList.add('hidden'));
+  ['clientLogoPh','vendorLogoPh'].forEach(id=>$(id).classList.remove('hidden'));
+  $('observerConfirm').checked=true;$('plcVerified').checked=false;
+  syncStatusPill();countDesc();renderA4(formData($('displayId').textContent));
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(!keepToast)toast('New blank report started with fresh Unique ID.','info');
+}
+function viewReport(id){
+  const r=loadAll().find(x=>x.id===id);if(!r)return;
+  fillForm(r);window.scrollTo({top:0,behavior:'smooth'});
+  toast(`Loaded <b>${id}</b> — all data, photos, logos & signatures restored.`,'info');
+}
+function delReport(id){
+  if(!confirm('Delete report '+id+' permanently?'))return;
+  saveAll(loadAll().filter(r=>r.id!==id));
+  if(editingId===id)newReport(true);
+  renderLibrary();updateStats();toast('Report deleted.','info');
+}
+function dupReport(id){
+  const r=loadAll().find(x=>x.id===id);if(!r)return;
+  const c=JSON.parse(JSON.stringify(r));c.id=genID();c.createdAt=new Date().toISOString();c.statusInfo.status='Open';
+  const all=loadAll();all.unshift(c);saveAll(all);renderLibrary();updateStats();
+  toast(`Duplicated as <b>${c.id}</b>.`,'ok');
+}
+function syncStatusPill(){
+  const s=$('status').value,p=$('liveStatusPill');p.textContent=s.toUpperCase();
+  const map={'Open':'bg-red-500 text-white','In Progress':'bg-amber-400 text-navy-950','Pending':'bg-orange-500 text-white','Closed':'bg-emerald-500 text-white','Verified':'bg-teal-600 text-white','Overdue':'bg-slate-900 text-white'};
+  p.className='status-pill '+(map[s]||'bg-safety-500 text-navy-950');
+}
+
+/* ============ LIBRARY / STATS ============ */
+function pillCls(s){return {'Open':'risk-critical','Closed':'risk-low','Verified':'risk-low','Pending':'risk-medium','In Progress':'risk-high','Overdue':'risk-critical'}[s]||'risk-medium'}
+function renderLibrary(){
+  const q=($('libSearch').value||$('topSearch').value||'').toLowerCase();
+  const f=$('libFilter').value;
+  const all=loadAll();
+  $('libCount').textContent=all.length;
+  let list=all.filter(r=>{
+    const hay=(r.id+' '+(r.basic.project||'')+' '+(r.basic.officer||'')+' '+(r.observation.location||'')+' '+(r.observation.type||'')+' '+(r.observation.responsible||'')+' '+(r.statusInfo.status||'')).toLowerCase();
+    const okQ=!q||hay.includes(q);
+    let okF=true;
+    if(f==='Positive')okF=!!r.risk.isPositive;else if(f)okF=r.statusInfo.status===f;
+    return okQ&&okF;
+  });
+  const box=$('libraryList');
+  if(!list.length){box.innerHTML=`<div class="text-center py-8 text-slate-400"><i class="fa-solid fa-folder-open text-3xl mb-2"></i><p class="text-[13px] font-semibold">No reports found.<br>Save your first observation to generate a Unique ID.</p></div>`;return}
+  box.innerHTML=list.map(r=>`
+    <div class="lib-item" onclick="viewReport('${r.id}')">
+      <div class="flex items-center gap-2">
+        <span class="font-display font-black text-[12px] text-navy-900">${r.id}</span>
+        <span class="status-pill ${pillCls(r.statusInfo.status)} ml-auto">${r.statusInfo.status}</span>
+      </div>
+      <p class="text-[12.5px] font-bold mt-1 truncate">${r.basic.project||'—'}</p>
+      <p class="text-[11.5px] text-slate-500 truncate"><i class="fa-solid fa-location-dot mr-1"></i>${r.observation.location||'—'} • ${r.observation.type||''}</p>
+      <div class="flex items-center gap-2 mt-2">
+        <span class="text-[10px] font-black px-2 py-1 rounded-md" style="background:${riskColor(r.risk.score,r.risk.isPositive)}22;color:${riskColor(r.risk.score,r.risk.isPositive)}">${r.risk.isPositive?'★':'⚠'} ${r.risk.score||'–'} • ${r.risk.level||'—'}</span>
+        <span class="text-[10.5px] text-slate-400">${r.observation.obsDate||''}</span>
+        <span class="ml-auto flex gap-1" onclick="event.stopPropagation()">
+          <button onclick="viewReport('${r.id}')" title="Open" class="w-7 h-7 rounded-lg bg-navy-900 text-white text-[11px] hover:bg-safety-500 hover:text-navy-950"><i class="fa-solid fa-eye"></i></button>
+          <button onclick="dupReport('${r.id}')" title="Duplicate" class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 text-[11px] hover:bg-slate-900 hover:text-white"><i class="fa-solid fa-copy"></i></button>
+          <button onclick="delReport('${r.id}')" title="Delete" class="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 text-[11px] hover:bg-red-600 hover:text-white"><i class="fa-solid fa-trash"></i></button>
+        </span>
+      </div>
+    </div>`).join('');
+}
+function updateStats(){
+  const all=loadAll();
+  $('stTotal').textContent=all.length;
+  $('stOpen').textContent=all.filter(r=>r.statusInfo.status==='Open').length;
+  $('stPending').textContent=all.filter(r=>['Pending','In Progress','Overdue'].includes(r.statusInfo.status)).length;
+  $('stClosed').textContent=all.filter(r=>['Closed','Verified'].includes(r.statusInfo.status)).length;
+  $('stCrit').textContent=all.filter(r=>!r.risk.isPositive&&r.risk.score>=10).length;
+  $('stPos').textContent=all.filter(r=>r.risk.isPositive).length;
+  const cats=[['LOW',all.filter(r=>!r.risk.isPositive&&r.risk.score>=1&&r.risk.score<=4).length,'#22c55e'],['MEDIUM',all.filter(r=>r.risk.score>=5&&r.risk.score<=9&&!r.risk.isPositive).length,'#eab308'],['HIGH',all.filter(r=>r.risk.score>=10&&r.risk.score<=15&&!r.risk.isPositive).length,'#f97316'],['CRITICAL',all.filter(r=>r.risk.score>=16&&!r.risk.isPositive).length,'#ef4444'],['POSITIVE ★',all.filter(r=>r.risk.isPositive).length,'#059669']];
+  const max=Math.max(1,...cats.map(c=>c[1]));
+  $('analytics').innerHTML=cats.map(([k,v,c])=>`<div><div class="flex justify-between mb-1"><span>${k}</span><span>${v}</span></div><div class="bg-slate-100 rounded-full"><div class="bar" style="width:${v/max*100}%;background:${c}"></div></div></div>`).join('');
+}
+
+/* ============ A4 RENDER / PRINT / EXPORT ============ */
+function renderA4(d){
+  d=d||formData($('displayId').textContent);
+  const col = riskColor(d.risk.score,d.risk.isPositive);
+  $('a4Id').textContent=d.id;$('a4Id2').textContent=d.id;
+  $('a4Project').textContent=(d.basic.project||'— Project —')+(d.logos.vendorName||d.observation.vendor?`  •  ${d.logos.vendorName||d.observation.vendor}`:'');
+  $('a4Project2').textContent=d.basic.project||'—';$('a4Officer').textContent=(d.basic.officer||'—')+(d.basic.weather?` (${d.basic.weather})`:'');
+  $('a4RDate').textContent=d.basic.date||'—';$('a4RTime').textContent=(d.basic.time||'—')+' / '+(d.basic.shift||'');
+  $('a4Date').textContent=d.basic.date||'';$('a4Time').textContent=d.basic.time||'';$('a4Shift').textContent=d.basic.shift||'';
+  $('a4Status').textContent=d.statusInfo.status.toUpperCase();$('a4Status2').textContent=`${d.statusInfo.status}  •  Priority: ${d.statusInfo.priority}`;
+  $('a4ObsDT').textContent=`${d.observation.obsDate||'—'}  ${d.observation.obsTime||''}`;
+  $('a4Loc').textContent=`${d.observation.location||'—'} — ${d.observation.area||''}`;
+  $('a4Type').textContent=d.observation.type||'—';$('a4Hazard').textContent=d.observation.hazard||'—';
+  $('a4Desc').textContent=d.observation.description||'—';$('a4Resp').textContent=d.observation.responsible||'—';$('a4Vendor').textContent=d.observation.vendor||'—';
+  $('a4Other').textContent=d.observation.other||'Nil';
+  $('a4Sev').textContent=`${d.risk.severity||'–'} ${d.risk.isPositive?'Impact':'Sev'}`;
+  $('a4Lik').textContent=`${d.risk.likelihood||'–'} ${d.risk.isPositive?'Replic.':'Lik'}`;
+  $('a4Score').textContent=d.risk.score?`${d.risk.severity} × ${d.risk.likelihood} = ${d.risk.score}`:'–';
+  const badge=$('a4LevelBadge');badge.textContent=d.risk.level||'—';badge.style.background=col;badge.style.color='#fff';
+  $('a4Action').textContent=d.action.corrective||'—';$('a4Priority').textContent=d.statusInfo.priority||'—';$('a4Target').textContent=d.statusInfo.target||'—';
+  const b=$('a4Before'),a=$('a4After');
+  if(d.action.before){b.src=d.action.before;b.style.background='#fff'}else{b.removeAttribute('src');b.style.background='#f1f5f9'}
+  if(d.action.after){a.src=d.action.after;a.style.background='#fff'}else{a.removeAttribute('src');a.style.background='#f1f5f9'}
+  $('a4BeforeCap').textContent='Before: '+(d.action.beforeCap||'Condition found');
+  $('a4AfterCap').textContent='After: '+(d.action.afterCap||'Rectified state');
+  $('a4Remarks').textContent=d.statusInfo.remarks||'—';
+  $('a4ObsName').textContent=d.signatures.obsName||'—';$('a4ObsDate').textContent=d.signatures.obsDate||'—';
+  $('a4RespName').textContent=d.signatures.respName||'—';$('a4RespDate').textContent=d.signatures.respDate||'—';
+  $('a4PmcName').textContent=(d.signatures.pmcName||'—');$('a4PmcDate').textContent=d.signatures.pmcDate||'—';$('a4PmcStatus').textContent=d.signatures.pmcStatus||'—';
+  const setSig=(id,src)=>{const el=$(id);if(src){el.src=src;el.style.display='block'}else{el.removeAttribute('src');el.style.display='block';el.style.minHeight='14mm';el.style.background='repeating-linear-gradient(transparent 0 12px, #e2e8f0 12px 13px)'}};
+  // reset bg
+  ['a4ObsSig','a4RespSig','a4PmcSig'].forEach(id=>{$(id).style.background='transparent';$(id).style.minHeight=''});
+  if(d.signatures.obsSig)$('a4ObsSig').src=d.signatures.obsSig;else{$('a4ObsSig').removeAttribute('src')}
+  if(d.signatures.respSig)$('a4RespSig').src=d.signatures.respSig;else{$('a4RespSig').removeAttribute('src')}
+  if(d.signatures.pmcSig)$('a4PmcSig').src=d.signatures.pmcSig;else{$('a4PmcSig').removeAttribute('src')}
+  $('a4Plc').textContent=(d.signatures.plcVerified?'☑ Verified by PLC — ':'☐ Verified by PLC — ')+(d.signatures.plcName||'');
+  $('a4Confirm').textContent=d.signatures.observerConfirm?'Yes — confirmed':'No';
+  $('a4Gen').textContent=new Date().toLocaleString();
+  $('a4PositiveBar').classList.toggle('hidden',!d.risk.isPositive);
+  // logos
+  [['a4ClientLogo','a4ClientPh',d.logos.client],['a4VendorLogo','a4VendorPh',d.logos.vendor]].forEach(([img,ph,src])=>{
+    if(src){$(img).src=src;$(img).classList.remove('hidden');$(ph).classList.add('hidden')}else{$(img).classList.add('hidden');$(ph).classList.remove('hidden')}
+  });
+}
+function previewA4(){renderA4(formData($('displayId').textContent));$('a4Modal').classList.remove('hidden');document.body.style.overflow='hidden'}
+function closeA4(){$('a4Modal').classList.add('hidden');document.body.style.overflow=''}
+function doPrint(){renderA4(formData($('displayId').textContent));$('a4Modal').classList.remove('hidden');setTimeout(()=>window.print(),150)}
+window.addEventListener('afterprint',()=>{if($('a4Modal').classList.contains('hidden')===false && document.body.style.overflow===''){/* keep */}});
+async function exportPDF(){
+  renderA4(formData($('displayId').textContent));
+  toast('Rendering print-quality PDF...','info');
+  try{
+    const {jsPDF}=window.jspdf;
+    const el=$('a4Sheet');
+    const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
+    const img=canvas.toDataURL('image/jpeg',.95);
+    const pdf=new jsPDF('p','mm','a4');
+    const pw=210,ph=297;
+    const ratio=Math.min(pw/canvas.width* (canvas.width/ (canvas.width)), ph/(canvas.height* pw/canvas.width));
+    pdf.addImage(img,'JPEG',0,0,pw,canvas.height* pw/canvas.width>ph?ph:canvas.height* pw/canvas.width);
+    // if overflow, add pages
+    const imgH=canvas.height* pw/canvas.width;
+    if(imgH>ph){
+      let remaining=imgH-ph, pos=-ph;
+      while(remaining>0){pdf.addPage();pdf.addImage(img,'JPEG',0,pos,pw,imgH);pos-=ph;remaining-=ph}
+    }
+    pdf.save(`${$('displayId').textContent}_Observation_Report.pdf`);
+    toast('PDF downloaded — aligned single A4.','ok');
+  }catch(e){toast('PDF failed — use Print → Save as PDF instead.','err')}
+}
+function exportExcel(){
+  try{
+    const all=loadAll();
+    const cur=formData($('displayId').textContent);
+    const wb=XLSX.utils.book_new();
+    // Sheet 1: register
+    const reg=[['SAFESIGHT 360 — DAILY SAFETY OBSERVATION REGISTER'],['Exported:',new Date().toLocaleString()],[],['Report ID','Report Date','Time','Project','Officer','Obs Date','Obs Time','Location','Area','Type','Hazard','Description','Responsible','Vendor/Company','Severity','Likelihood','Score','Level','Positive?','Corrective Action','Before Photo','After Photo','Status','Priority','Target Date','Remarks','Observer','PLC Verified','PMC','PMC Status']];
+    all.forEach(r=>reg.push([r.id,r.basic.date,r.basic.time,r.basic.project,r.basic.officer,r.observation.obsDate,r.observation.obsTime,r.observation.location,r.observation.area,r.observation.type,r.observation.hazard,r.observation.description,r.observation.responsible,r.observation.vendor,r.risk.severity,r.risk.likelihood,r.risk.score,r.risk.level,r.risk.isPositive?'YES':'NO',r.action.corrective,r.action.before?(r.action.beforeKind==='link'?r.action.before:'[embedded]'):'',r.action.after?(r.action.afterKind==='link'?r.action.after:'[embedded]'):'',r.statusInfo.status,r.statusInfo.priority,r.statusInfo.target,r.statusInfo.remarks,r.signatures.obsName,r.signatures.plcVerified?'YES':'NO',r.signatures.pmcName,r.signatures.pmcStatus]));
+    const ws1=XLSX.utils.aoa_to_sheet(reg);
+    ws1['!cols']=[{wch:18},{wch:12},{wch:8},{wch:26},{wch:20},{wch:12},{wch:9},{wch:22},{wch:22},{wch:24},{wch:22},{wch:50},{wch:20},{wch:22},{wch:9},{wch:10},{wch:8},{wch:16},{wch:10},{wch:50},{wch:16},{wch:16},{wch:14},{wch:10},{wch:12},{wch:40},{wch:18},{wch:12},{wch:18},{wch:12}];
+    ws1['!freeze']={xSplit:0,ySplit:4};
+    ws1['!autofilter']={ref:`A4:AD${reg.length}`};
+    XLSX.utils.book_append_sheet(wb,ws1,'Observation Register');
+    // Sheet 2: current detailed A4-aligned
+    const det=[['DAILY SAFETY OBSERVATION REPORT — '+cur.id],['Project',cur.basic.project,'Officer',cur.basic.officer],['Report Date',cur.basic.date,'Report Time',cur.basic.time+' / '+cur.basic.shift],[],['SECTION 2 — OBSERVATION'],['Obs Date',cur.observation.obsDate,'Obs Time',cur.observation.obsTime],['Location',cur.observation.location,'Area',cur.observation.area],['Type',cur.observation.type,'Hazard',cur.observation.hazard],['Description',cur.observation.description],['Responsible',cur.observation.responsible,'Vendor',cur.observation.vendor],['Other Observations',cur.observation.other],[],['SECTION 3 — RISK & ACTION'],['Severity',cur.risk.severity,'Likelihood',cur.risk.likelihood],['Score',cur.risk.score,'Level',cur.risk.level],['Corrective Action',cur.action.corrective],['Before Caption',cur.action.beforeCap,'After Caption',cur.action.afterCap],[],['SECTION 5 — STATUS & SIGN-OFF'],['Status',cur.statusInfo.status,'Priority',cur.statusInfo.priority],['Target Date',cur.statusInfo.target,'Remarks',cur.statusInfo.remarks],['Observer',cur.signatures.obsName,'Date',cur.signatures.obsDate],['Responsible',cur.signatures.respName,'Date',cur.signatures.respDate],['PMC',cur.signatures.pmcName+' ('+cur.signatures.pmcStatus+')','Date',cur.signatures.pmcDate],['PLC Verified',(cur.signatures.plcVerified?'YES':'NO')+' — '+cur.signatures.plcName]];
+    const ws2=XLSX.utils.aoa_to_sheet(det);
+    ws2['!cols']=[{wch:20},{wch:45},{wch:16},{wch:45}];
+    XLSX.utils.book_append_sheet(wb,ws2,'Current Report (A4)');
+    XLSX.writeFile(wb,`${cur.id}_Safety_Reports.xlsx`);
+    toast('Excel workbook downloaded — 2 sheets, aligned & filtered.','ok');
+  }catch(e){toast('Excel export failed.','err')}
+}
+
+/* ============ MISC ============ */
+function countDesc(){$('descCount').textContent=($('description').value||'').length}
+
+/* ============ SEED ============ */
+function seed(){
+  if(loadAll().length)return;
+  const t=todayISO();
+  const demo=[
+    {id:'OBS-'+t.replaceAll('-','')+'-4821',createdAt:new Date().toISOString(),
+    basic:{project:'Marina Gate Tower — Phase 2',officer:'Ahmed Al Mansoori',date:t,time:'10:30',shift:'Day Shift (07:00 – 19:00)',weather:'Hot / High Temp'},
+    observation:{obsDate:t,obsTime:'10:15',location:'Grid C-4, Level 12 Slab Edge',area:'Zone A – Main Structure',type:'Working at Height',description:'Two workers near unguarded slab edge without harnesses; lifeline available but not hooked. Immediate stop-work and briefing conducted.',responsible:'R. Kumar — Foreman',vendor:'ABC Contracting LLC',hazard:'Fall from Height',other:'Repeat location — edge protection materials staged nearby.'},
+    risk:{severity:4,likelihood:4,score:16,level:'CRITICAL',isPositive:false},
+    action:{corrective:'Work stopped, area barricaded with red tape, harnesses issued and hooked to lifeline, TBT done, edge protection installed same day.',before:'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=60',beforeKind:'link',beforeCap:'Unguarded edge, no harness',after:'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=60',afterKind:'link',afterCap:'Edge protected + harnessed'},
+    statusInfo:{status:'In Progress',priority:'High',target:t,remarks:'Re-inspection tomorrow 08:00. Harness compliance audit for all height crews.'},
+    signatures:{obsName:'Ahmed Al Mansoori',obsSig:'',obsDate:t,respName:'R. Kumar',respSig:'',respDate:t,pmcName:'J. Whitfield',pmcSig:'',pmcStatus:'Pending',pmcDate:t,plcName:'S. Rao',plcVerified:true,observerConfirm:true},
+    logos:{client:'',vendor:'',clientName:'Marina Developments',vendorName:'ABC Contracting'}},
+    {id:'OBS-'+t.replaceAll('-','')+'-5174',createdAt:new Date().toISOString(),
+    basic:{project:'Marina Gate Tower — Phase 2',officer:'Sara Iqbal',date:t,time:'14:05',shift:'Day Shift (07:00 – 19:00)',weather:'Clear / Normal'},
+    observation:{obsDate:t,obsTime:'13:50',location:'Laydown Yard — Bay 3',area:'Laydown / Storage Yard',type:'Good Practice / Positive Observation',description:' rigging crew used tagged colour-coded slings, exclusion zone with cones + banksman, and pre-lift checklist signed. Exemplary housekeeping around crane pad.',responsible:'M. Okafor — Rigging Supervisor',vendor:'Gulf Lift Services',hazard:'No Immediate Hazard (Positive)',other:'Recommend replicating cone-zone layout at Bay 1 & 2.'},
+    risk:{severity:4,likelihood:4,score:16,level:'OUTSTANDING ★★★★',isPositive:true},
+    action:{corrective:'Crew commended on spot, photos shared on safety board and WhatsApp group, nominated for Safety Star of the Week.',before:'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=800&q=60',beforeKind:'link',beforeCap:'Exclusion zone + banksman',after:'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&q=60',afterKind:'link',afterCap:'Tagged slings + checklist'},
+    statusInfo:{status:'Closed',priority:'Medium',target:t,remarks:'Closed as positive — replicate practice site-wide.'},
+    signatures:{obsName:'Sara Iqbal',obsSig:'',obsDate:t,respName:'M. Okafor',respSig:'',respDate:t,pmcName:'J. Whitfield',pmcSig:'',pmcStatus:'Approved',pmcDate:t,plcName:'S. Rao',plcVerified:true,observerConfirm:true},
+    logos:{client:'',vendor:'',clientName:'Marina Developments',vendorName:'Gulf Lift Services'}}
+  ];
+  saveAll(demo);
+}
+
+/* ============ INIT ============ */
+document.addEventListener('DOMContentLoaded',()=>{
+  sigPads.observer=makePad('sigObserver');sigPads.responsible=makePad('sigResponsible');sigPads.pmc=makePad('sigPMC');
+  document.querySelectorAll('.sev-btn').forEach(b=>b.onclick=()=>setSev(+b.dataset.v));
+  document.querySelectorAll('.lik-btn').forEach(b=>b.onclick=()=>setLik(+b.dataset.v));
+  $('description').addEventListener('input',countDesc);
+  $('status').addEventListener('change',syncStatusPill);
+  $('topSearch').addEventListener('input',e=>{$('libSearch').value=e.target.value;renderLibrary()});
+  $('displayId').textContent=genID();
+  const t=todayISO();$('reportDate').value=t;$('obsDate').value=t;$('obsSigDate').value=t;$('respSigDate').value=t;$('pmcDate').value=t;$('targetDate').value=t;
+  $('reportTime').value=nowHM();$('obsTime').value=nowHM();
+  seed();buildMatrix();calcRisk();syncStatusPill();renderLibrary();updateStats();
+  renderA4(formData($('displayId').textContent));
+  setTimeout(()=>toast('Welcome — fill the form, calculate risk, attach evidence & save. Every save gets a Unique ID.','info'),600);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCamera();closeA4()}});
+$('a4Modal')?.addEventListener('click',e=>{if(e.target.id==='a4Modal')closeA4()});
+</script>
+</body>
+</html>
